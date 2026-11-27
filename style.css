@@ -1291,4 +1291,37 @@ input:focus-visible {
     border-radius: 10px;
 }
 
+/* CUSTOMER FEEDBACK BUTTON */
+
+.feedback-button {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    background: linear-gradient(135deg, #d4af37, #ffd700);
+    color: #111;
+    padding: 14px 22px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 5px 25px rgba(212,175,55,0.4);
+    z-index: 9999;
+    transition: 0.3s ease;
+}
+
+.feedback-button:hover {
+    transform: translateY(-4px);
+    background: #fff;
+    color: #111;
+}
+
+@media (max-width: 600px) {
+    .feedback-button {
+        bottom: 80px;
+        right: 12px;
+        padding: 12px 16px;
+        font-size: 12px;
+    }
+}
+
 /* End of MEHRAJ STORE CSS */
