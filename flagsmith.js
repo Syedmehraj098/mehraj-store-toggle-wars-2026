@@ -1,7 +1,7 @@
 
 // ============================================
 // MEHRAJ STORE
-// FLAGSMITH A/B TESTING INTEGRATION
+// FLAGSMITH EXPERIMENT & ANALYTICS
 // Toggle Wars 2026
 // ============================================
 
@@ -13,7 +13,6 @@ const LAYOUT_FLAG = "shopping_layout_test";
 const RECOMMENDATION_FLAG = "smart_product_recommendations";
 
 const store = window.MehrajStore;
-
 const status = document.getElementById("experimentStatus");
 
 const CONTROL_LAYOUT = {
@@ -22,17 +21,17 @@ const CONTROL_LAYOUT = {
     button_text: "Shop Now"
 };
 
-// ============================================
+let analyticsReady = false;
+
 // CONNECTION STATUS
-// ============================================
 
 function setStatus(message) {
-    status.textContent = message;
+    if (status) {
+        status.textContent = message;
+    }
 }
 
-// ============================================
-// APPLY FLAGSMITH CONFIGURATION
-// ============================================
+// APPLY FLAG CONFIGURATION
 
 function applyFlags() {
 
@@ -55,13 +54,9 @@ function applyFlags() {
                 parsedValue &&
                 ["control", "premium"].includes(parsedValue.layout)
             ) {
-
                 configuration = parsedValue;
-
             } else {
-
                 throw new Error("Invalid layout configuration");
-
             }
 
         } catch (error) {
@@ -75,14 +70,9 @@ function applyFlags() {
             return false;
 
         }
-
     }
 
-    // Apply A/B testing layout
-
     store.applyShoppingLayout(configuration);
-
-    // Smart recommendations feature
 
     const recommendationsEnabled =
         sdk.hasFeature(RECOMMENDATION_FLAG);
@@ -96,7 +86,6 @@ function applyFlags() {
         setStatus("Flagsmith connected | Experiment flag disabled");
 
         return false;
-
     }
 
     setStatus(
@@ -105,68 +94,140 @@ function applyFlags() {
     );
 
     console.log("Flagsmith configuration:", configuration);
-
-    console.log(
-        "Recommendations:",
-        recommendationsEnabled
-    );
+    console.log("Recommendations:", recommendationsEnabled);
 
     return true;
-
 }
 
-// ============================================
+// SEND BUFFERED EVENTS
+
+async function flushAnalytics() {
+
+    if (!analyticsReady) return;
+
+    try {
+
+        await window.flagsmith.flushEvents();
+
+        console.log("Flagsmith event flush completed");
+
+    } catch (error) {
+
+        console.error("Flagsmith event flush failed:", error);
+
+    }
+}
+
+// FORWARD STORE EVENTS TO FLAGSMITH
+
+window.addEventListener("mehraj:analytics", async function (e) {
+
+    if (!analyticsReady) return;
+
+    const event = e.detail;
+
+    if (!event || !event.event) return;
+
+    // Exposure is recorded by getExperimentFlag().
+    // Avoid sending a duplicate custom exposure event.
+
+    if (event.event === "experiment_exposure") return;
+
+    try {
+
+        await window.flagsmith.trackEvent(event.event);
+
+        console.log(
+            "Flagsmith event queued:",
+            event.event
+        );
+
+        await flushAnalytics();
+
+    } catch (error) {
+
+        console.error(
+            "Flagsmith tracking failed:",
+            error
+        );
+
+    }
+});
+
 // INITIALIZE FLAGSMITH
-// ============================================
 
 async function initializeFlagsmith() {
 
     try {
 
         if (!store) {
-
             throw new Error("Store application not loaded");
-
         }
 
         if (!window.flagsmith) {
-
             throw new Error("Flagsmith SDK not loaded");
-
-        }
-
-        if (
-            !ENVIRONMENT_KEY ||
-            ENVIRONMENT_KEY === "PASTE_CLIENT_SIDE_KEY_HERE"
-        ) {
-
-            throw new Error("Client-side SDK key missing");
-
         }
 
         setStatus("Connecting to Flagsmith...");
 
-        await window.flagsmith.init({
+        const sdk = window.flagsmith;
+
+        await sdk.init({
 
             environmentID: ENVIRONMENT_KEY,
 
-            identity: store.visitorId,
-
             cacheFlags: false,
 
-            enableAnalytics: true
+            enableAnalytics: true,
+
+            enableEvents: true
 
         });
 
+        await sdk.identify(store.visitorId);
+
         const applied = applyFlags();
+
+        analyticsReady =
+            typeof sdk.getExperimentFlag === "function" &&
+            typeof sdk.trackEvent === "function" &&
+            typeof sdk.flushEvents === "function";
+
+        if (!analyticsReady) {
+
+            console.warn(
+                "Experiment analytics requires a compatible Flagsmith SDK (12.4.0+)"
+            );
+
+        }
 
         if (applied) {
 
-            // Local exposure log
+            if (analyticsReady) {
+
+                try {
+
+                    await sdk.getExperimentFlag(LAYOUT_FLAG);
+
+                    console.log(
+                        "Flagsmith experiment exposure evaluated"
+                    );
+
+                    await flushAnalytics();
+
+                } catch (error) {
+
+                    console.error(
+                        "Experiment exposure failed:",
+                        error
+                    );
+
+                }
+            }
 
             store.trackEvent("experiment_exposure", {
 
-                experiment: "shopping_layout_test",
+                experiment: LAYOUT_FLAG,
 
                 source: "flagsmith"
 
@@ -177,6 +238,8 @@ async function initializeFlagsmith() {
         console.log("Flagsmith initialized successfully");
 
     } catch (error) {
+
+        analyticsReady = false;
 
         console.error("Flagsmith connection failed:", error);
 
@@ -191,12 +254,9 @@ async function initializeFlagsmith() {
         setStatus("Offline Preview | CONTROL");
 
     }
-
 }
 
-// ============================================
 // MANUAL FLAG REFRESH
-// ============================================
 
 window.refreshStoreFlags = async function () {
 
@@ -214,12 +274,20 @@ window.refreshStoreFlags = async function () {
 
 };
 
-// ============================================
+// FLUSH EVENTS WHEN PAGE BECOMES HIDDEN
+
+document.addEventListener("visibilitychange", function () {
+
+    if (document.visibilityState === "hidden") {
+
+        flushAnalytics();
+
+    }
+
+});
+
 // START INTEGRATION
-// ============================================
 
 initializeFlagsmith();
 
-// ============================================
 // END OF FLAGSMITH INTEGRATION
-// ============================================
