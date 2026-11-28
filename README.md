@@ -114,3 +114,9 @@ Built for Toggle Wars 2026.
 ---
 
 MEHRAJ STORE | Technology meets Shopping
+## Demo Video
+
+Watch the official MEHRAJ STORE project demonstration for Toggle Wars 2026:
+
+[Watch Demo Video on YouTube](https://youtu.be/T6JbZH-Ogps)
+
